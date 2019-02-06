@@ -8,13 +8,15 @@ class MovieApi:
 
     def __init__(self):
         self.request_api = "https://box.maoyan.com/promovie/api/box/second.json"
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36'}
         self._raw_data = ""
         self._data = {}
         self.movie_ids = []
         self.refresh()
 
     def refresh(self):
-        json_raw = self.requests.get(self.request_api).text
+        json_raw = self.requests.get(self.request_api, headers=self.headers).text
         data_dict = self.json.loads(json_raw)
         self._raw_data = data_dict["data"]["list"]
 
