@@ -15,7 +15,11 @@ def refresh_all():
     result = movie_api.refresh()
     if result:
         for movie_id2 in movie_api.movie_ids:
-            all_movies[movie_id2].update(movie_api.get_raw_json(movie_id2))
+            if movie_id2 in all_movies:
+                all_movies[movie_id2].update(movie_api.get_raw_json(movie_id2))
+            else:
+                all_movies[movie_id2] = MovieData(movie_api.get_raw_json(movie_id2))
+
         return True
     return False
 
