@@ -16,7 +16,13 @@ class MovieApi:
         self.refresh()
 
     def refresh(self):
-        json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
+        try:
+            json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
+        except self.requests.exceptions.ReadTimeout:
+            try:
+                json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
+            except self.requests.exceptions.ReadTimeout:
+                return False
         data_dict = self.json.loads(json_raw)
         self._raw_data = data_dict["data"]["list"]
 
@@ -25,6 +31,8 @@ class MovieApi:
             if now_id not in self.movie_ids:
                 self.movie_ids.append(now_id)
             self._data[now_id] = movie_data
+
+        return True
 
     def get_data(self, movie_id, attribute_name):
         if movie_id in self.movie_ids:
