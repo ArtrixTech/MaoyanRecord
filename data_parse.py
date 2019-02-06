@@ -62,8 +62,9 @@ class MovieData:
             "time": time_stamp,
             "seatRate": data_dict["avgSeatView"],  # 上座率
             "avgPersonPerShow": data_dict["avgShowView"],  # 场均人次
-            "integrateBox": data_dict["boxInfo"],  # 综合票房
+            "dayBoxInfo": data_dict["boxInfo"],  # 当天综合票房
             "boxRate": data_dict["boxRate"],  # 票房占比
+            "sumBoxInfo": data_dict["sumBoxInfo"],  # 总票房
             "totalShow": data_dict["showInfo"],  # 排片量
             "showRate": data_dict["showRate"],  # 排片占比
         }]
@@ -79,8 +80,9 @@ class MovieData:
             "time": time_stamp,
             "seatRate": data_dict["avgSeatView"],  # 上座率
             "avgPersonPerShow": data_dict["avgShowView"],  # 场均人次
-            "integrateBox": data_dict["boxInfo"],  # 综合票房
+            "dayBoxInfo": data_dict["boxInfo"],  # 当天综合票房
             "boxRate": data_dict["boxRate"],  # 票房占比
+            "sumBoxInfo": data_dict["sumBoxInfo"],  # 总票房
             "totalShow": data_dict["showInfo"],  # 排片量
             "showRate": data_dict["showRate"],  # 排片占比
         }
