@@ -1,3 +1,7 @@
+#!/usr/bin/python3.6
+# -*- coding: utf-8 -*-
+
+
 class MovieApi:
     import requests
     import json
