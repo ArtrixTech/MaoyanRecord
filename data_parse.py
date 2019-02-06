@@ -18,10 +18,10 @@ class MovieApi:
     def refresh(self):
         try:
             json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
-        except self.requests.exceptions.ReadTimeout:
+        except:
             try:
                 json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
-            except self.requests.exceptions.ReadTimeout:
+            except:
                 return False
         data_dict = self.json.loads(json_raw)
         self._raw_data = data_dict["data"]["list"]
