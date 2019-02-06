@@ -16,7 +16,7 @@ class MovieApi:
         self.refresh()
 
     def refresh(self):
-        json_raw = self.requests.get(self.request_api, headers=self.headers).text
+        json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2).text
         data_dict = self.json.loads(json_raw)
         self._raw_data = data_dict["data"]["list"]
 
