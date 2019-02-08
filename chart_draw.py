@@ -54,27 +54,67 @@ for movie_name in all_data:
 print(datetime.datetime.fromtimestamp(time_max))
 print(datetime.datetime.fromtimestamp(time_min))
 
+
+def format(data):
+    return str(data).replace("%", "")
+
+
+plt.figure(figsize=(8, 4), dpi=128)
 for movie_name in all_data:
 
+    print("Drawing " + movie_name + ".")
+
     movie_data = all_data[movie_name]
-    x_data = []
-    y_data = []
+    all_day_box_info = []
+    all_sum_box_info = []
+    all_seat_rate = []
+    all_box_rate = []
+
+    time_stamps = []
 
     for data in movie_data:
 
         time = data["time"]
         day_box_info = data["dayBoxInfo"]
-        sum_box_info = str(data["boxRate"]).replace("%","")
+        sum_box_info = format(data["sumBoxInfo"])
+        seat_rate = format(data["seatRate"])
+        box_rate = format(data["boxRate"])
 
         if "亿" in sum_box_info:
             sum_box_info = float(sum_box_info.replace("亿", "")) * 10000
         elif "万" in sum_box_info:
             sum_box_info = float(sum_box_info.replace("万", ""))
 
-        x_data.append(time)
-        y_data.append(sum_box_info)
+        all_day_box_info.append(float(day_box_info))
+        all_sum_box_info.append(float(sum_box_info))
+        all_seat_rate.append(float(seat_rate))
+        all_box_rate.append(float(box_rate))
 
-    plt.plot(np.array(x_data), np.array(y_data), label=movie_name)
+        time_stamps.append(time)
+
+
+    def gaussian_smooth(input_data, degree=160):
+        window = degree * 2 - 1
+        weight = np.array([1.0] * window)
+        weight_gauss = []
+        for i in range(window):
+            i = i - degree + 1
+            fraction = i / float(window)
+            gauss = 1 / (np.exp((4 * fraction) ** 2))
+            weight_gauss.append(gauss)
+        weight = np.array(weight_gauss) * weight
+        smoothed = [0.0] * (len(input_data) - window)
+        for i in range(len(smoothed)):
+            smoothed[i] = sum(np.array(input_data[i:i + window]) * weight) / sum(weight)
+        return smoothed
+
+
+    gaussian_kernel_radius = 256
+    x = time_stamps[0:len(time_stamps) - gaussian_kernel_radius * 2 + 1]
+    y = gaussian_smooth(all_seat_rate, gaussian_kernel_radius)
+
+    plt.plot(np.array(x), np.array(y), label=movie_name, linewidth=1.6)
+    plt.fill_between(np.array(x), np.zeros(len(x)), np.array(y), alpha=0.1)
 
 plt.legend()
 plt.show()
