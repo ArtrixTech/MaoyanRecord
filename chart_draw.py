@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Prevent Chinese encoding error
+plt.style.use("seaborn-dark")
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 record_dir = "records/"
@@ -51,15 +52,19 @@ for movie_name in all_data:
         if data["time"] > time_max:
             time_max = data["time"]
 
-print(datetime.datetime.fromtimestamp(time_max))
-print(datetime.datetime.fromtimestamp(time_min))
+time_min_text = str(datetime.datetime.fromtimestamp(time_min))
+time_max_text = str(datetime.datetime.fromtimestamp(time_max))
+
+print(time_max_text)
+print(time_min_text)
 
 
-def format(data):
+def reformat(data):
     return str(data).replace("%", "")
 
 
-plt.figure(figsize=(8, 4), dpi=128)
+fig = plt.figure(figsize=(9, 4), dpi=256)
+
 for movie_name in all_data:
 
     print("Drawing " + movie_name + ".")
@@ -76,9 +81,9 @@ for movie_name in all_data:
 
         time = data["time"]
         day_box_info = data["dayBoxInfo"]
-        sum_box_info = format(data["sumBoxInfo"])
-        seat_rate = format(data["seatRate"])
-        box_rate = format(data["boxRate"])
+        sum_box_info = reformat(data["sumBoxInfo"])
+        seat_rate = reformat(data["seatRate"])
+        box_rate = reformat(data["boxRate"])
 
         if "亿" in sum_box_info:
             sum_box_info = float(sum_box_info.replace("亿", "")) * 10000
@@ -109,12 +114,35 @@ for movie_name in all_data:
         return smoothed
 
 
+    all_delta_box = np.zeros(len(all_day_box_info))
+
+    for n in range(len(all_day_box_info) - 1):
+        if n == 0:
+            all_delta_box[n] = 0
+        else:
+            all_delta_box[n] = (all_day_box_info[n] - all_day_box_info[n - 1]) / 5
+            if all_delta_box[n] < 0:  # Prevent interference of day-change
+                all_delta_box[n] = 0
+
     gaussian_kernel_radius = 256
-    x = time_stamps[0:len(time_stamps) - gaussian_kernel_radius * 2 + 1]
-    y = gaussian_smooth(all_seat_rate, gaussian_kernel_radius)
+    data_bias = gaussian_kernel_radius * 2 - 1
+    x = time_stamps[:len(time_stamps) - data_bias]
+    y = gaussian_smooth(all_delta_box, gaussian_kernel_radius)
 
     plt.plot(np.array(x), np.array(y), label=movie_name, linewidth=1.6)
-    plt.fill_between(np.array(x), np.zeros(len(x)), np.array(y), alpha=0.1)
+    bottom = plt.ylim()[0]
+    bottom_vals = np.zeros(len(x))
+    for i in range(len(x) - 1):
+        bottom_vals[i] = 0
+    plt.fill_between(np.array(x), bottom_vals, np.array(y), alpha=0.1)
 
+plt.grid(color=(0.8, 0.8, 0.8, 0.8))
+plt.xlim([time_min, time_max])
+plt.ylim(bottom=0)
 plt.legend()
+
+plt.xlabel("Unix时间戳")
+plt.ylabel("票房增速 万元/秒")
+plt.title("电影票房增长速度 - " + "[" + time_min_text + "到" + time_max_text + "]")
+
 plt.show()
