@@ -1,5 +1,8 @@
 #!/usr/bin/python3.6
 # -*- coding: utf-8 -*-
+from enum import Enum
+import time
+import json
 
 
 class MovieApi:
@@ -23,7 +26,7 @@ class MovieApi:
                 json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2.5).text
             except:
                 return False
-        data_dict = self.json.loads(json_raw)
+        data_dict = json.loads(json_raw)
         self._raw_data = data_dict["data"]["list"]
 
         for movie_data in self._raw_data:
@@ -38,43 +41,69 @@ class MovieApi:
         if movie_id in self.movie_ids:
             return self._data[movie_id][attribute_name]
         else:
-            raise NameError("The movie id is not exist.")
+            raise NameError("The movie id doesn't exist.")
 
     def get_raw_json(self, movie_id):
         if movie_id in self.movie_ids:
-            return self.json.dumps(self._data[movie_id])
+            return json.dumps(self._data[movie_id])
         else:
-            raise NameError("The movie id is not exist.")
+            raise NameError("The movie id doesn't exist.")
 
 
 class MovieData:
-    import time
-    import json
+    class DataType(Enum):
+        time = 1
+        seatRate = 2
+        avgPersonPerShow = 3
+        dayBoxInfo = 4
+        boxRate = 5
+        sumBoxInfo = 6
+        totalShow = 7
+        showRate = 8
 
-    def __init__(self, json_raw):
-        data_dict = self.json.loads(json_raw)
-        time_stamp = int(self.time.time())
+        @staticmethod
+        def to_str(data_type_obj):
+            return str(data_type_obj).replace("DataType.", "")
 
-        self.movieId = data_dict["movieId"]
-        self.movieName = data_dict["movieName"]
+    def __init__(self, json_raw=None):
 
-        self.data_record = [{
-            "time": time_stamp,
-            "seatRate": data_dict["avgSeatView"],  # 上座率
-            "avgPersonPerShow": data_dict["avgShowView"],  # 场均人次
-            "dayBoxInfo": data_dict["boxInfo"],  # 当天综合票房
-            "boxRate": data_dict["boxRate"],  # 票房占比
-            "sumBoxInfo": data_dict["sumBoxInfo"],  # 总票房
-            "totalShow": data_dict["showInfo"],  # 排片量
-            "showRate": data_dict["showRate"],  # 排片占比
-        }]
+        if json_raw:
+            data_dict = json.loads(json_raw)
+            time_stamp = int(time.time())
+
+            self.movieId = data_dict["movieId"]
+            self.movieName = data_dict["movieName"]
+
+            self.data_record = [{
+                "time": time_stamp,
+                "seatRate": data_dict["avgSeatView"],  # 上座率
+                "avgPersonPerShow": data_dict["avgShowView"],  # 场均人次
+                "dayBoxInfo": data_dict["boxInfo"],  # 当天综合票房
+                "boxRate": data_dict["boxRate"],  # 票房占比
+                "sumBoxInfo": data_dict["sumBoxInfo"],  # 总票房
+                "totalShow": data_dict["showInfo"],  # 排片量
+                "showRate": data_dict["showRate"],  # 排片占比
+            }]
+
+        self._key_name_to_type = {
+            "time": self.DataType.time,
+            "seatRate": self.DataType.seatRate,  # 上座率
+            "avgPersonPerShow": self.DataType.avgPersonPerShow,  # 场均人次
+            "dayBoxInfo": self.DataType.dayBoxInfo,  # 当天综合票房
+            "boxRate": self.DataType.boxRate,  # 票房占比
+            "sumBoxInfo": self.DataType.sumBoxInfo,  # 总票房
+            "totalShow": self.DataType.totalShow,  # 排片量
+            "showRate": self.DataType.showRate,  # 排片占比
+        }
+
+        self.time_formatted_data = {}
 
     def __str__(self):
         return self.movieId
 
     def update(self, json_raw, save=True):
-        data_dict = self.json.loads(json_raw)
-        time_stamp = int(self.time.time())
+        data_dict = json.loads(json_raw)
+        time_stamp = int(time.time())
 
         to_save = {
             "time": time_stamp,
@@ -96,7 +125,61 @@ class MovieData:
         self.data_record.append(to_save)
 
     def _dumps(self, content):
-        return self.json.dumps({"movieName": self.movieName, "data": content})
+        return json.dumps({"movieName": self.movieName, "data": content})
+
+    def loads(self, input_content):
+        """
+        Import from outer file
+        :param input_content: List<Of String> allowed only. !Important
+        :return: None
+        """
+        line_index = 0
+        for line in input_content:
+            line_index += 1
+            try:
+                json_data = json.loads(line)
+
+                # To adapt the previous version of data format
+                if "integrateBox" in json_data["data"]:
+                    json_data["data"]["dayBoxInfo"] = json_data["data"]["integrateBox"]
+                if "sumBoxInfo" not in json_data["data"]:
+                    json_data["data"]["sumBoxInfo"] = 0
+
+                formatted_data = dict()
+                formatted_data["time"] = json_data["time"]
+
+                for key in json_data:
+                    formatted_data[key] = json_data[key]
+                self.data_record.append(formatted_data)
+
+            except json.decoder.JSONDecodeError:
+                print("  WARNING: Data incomplete at line " + str(line_index))
+                print("    Content: " + line)
+
+        def calc_total_data(data_type):
+            assert isinstance(data_type, MovieData.DataType)
+            data_type_str = MovieData.DataType.to_str(data_type)
+            all_data = []
+            for record in self.data_record:
+                record_time = record["time"]
+                record_data = record[data_type_str]
+                all_data.append({"time": record_time, "data": record_data})
+            self.time_formatted_data[data_type_str] = all_data
+
+        for typ in MovieData.DataType:
+            calc_total_data(typ)
 
     def dumps_all(self):
-        return self.json.dumps({"movieName": self.movieName, "data": self.data_record})
+        return json.dumps({"movieName": self.movieName, "data": self.data_record})
+
+    def get_data_list(self, data_type):
+        """
+        Generate List styled data
+        :param data_type:
+        :return: <List>
+        """
+
+        output_list = []
+        for data in self.time_formatted_data:
+            output_list.append(data[MovieData.DataType.to_str(data_type)])
+        return output_list
