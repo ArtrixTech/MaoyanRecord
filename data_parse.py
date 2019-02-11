@@ -3,6 +3,7 @@
 from enum import Enum
 import time
 import json
+import numpy as np
 
 
 class MovieApi:
@@ -60,10 +61,26 @@ class MovieData:
         sumBoxInfo = 6
         totalShow = 7
         showRate = 8
+        deltaBox = 9
 
         @staticmethod
         def to_str(data_type_obj):
             return str(data_type_obj).replace("DataType.", "")
+
+        @staticmethod
+        def is_raw_data_type(data_type_obj):
+            raw_data_type_list = [
+                "time",
+                "seatRate",  # 上座率
+                "avgPersonPerShow",  # 场均人次
+                "dayBoxInfo",  # 当天综合票房
+                "boxRate",  # 票房占比
+                "sumBoxInfo",  # 总票房
+                "totalShow",  # 排片量
+                "showRate"
+            ]
+            # return data_type_str in MovieData.DataType.raw_data_type_list
+            return MovieData.DataType.to_str(data_type_obj) in raw_data_type_list
 
     def __init__(self, json_raw=None):
 
@@ -97,6 +114,7 @@ class MovieData:
         }
 
         self.time_formatted_data = {}
+        self.data_record = []
 
     def __str__(self):
         return self.movieId
@@ -134,6 +152,9 @@ class MovieData:
         :return: None
         """
         line_index = 0
+        assert isinstance(input_content, list)
+        self.movieName = json.loads(input_content[0])["movieName"]
+
         for line in input_content:
             line_index += 1
             try:
@@ -145,11 +166,14 @@ class MovieData:
                 if "sumBoxInfo" not in json_data["data"]:
                     json_data["data"]["sumBoxInfo"] = 0
 
+                # To reformat data format
+                # from {time:%TIME%,data:{data1:%DATA1%...}}
+                #   to {time:%TIME%,data1:%DATA1%...}
                 formatted_data = dict()
-                formatted_data["time"] = json_data["time"]
 
-                for key in json_data:
-                    formatted_data[key] = json_data[key]
+                for key in json_data["data"]:
+                    formatted_data[key] = json_data["data"][key]
+
                 self.data_record.append(formatted_data)
 
             except json.decoder.JSONDecodeError:
@@ -166,8 +190,40 @@ class MovieData:
                 all_data.append({"time": record_time, "data": record_data})
             self.time_formatted_data[data_type_str] = all_data
 
+        def calc_additional_data():
+
+            # Delta Box Calculation
+            delta_box_source = self.get_data_list(MovieData.DataType.dayBoxInfo)
+            delta_box = list(np.zeros(len(delta_box_source)))
+
+            for n in range(len(delta_box_source) - 1):
+                if n == 0:
+                    delta_data = 0
+                else:
+
+                    now_source = delta_box_source[n]
+                    last_source = delta_box_source[n - 1]
+
+                    delta_time = float(now_source["time"]) - float(last_source["time"])
+                    if delta_time == 0:
+                        delta_time = 1
+
+                    delta_data = (float(now_source["data"]) - float(last_source["data"])) / delta_time
+
+                    if delta_data < 0:  # Prevent interference of day-change
+                        delta_data = 0
+                    if delta_data > 10:  # Prevent interference of data-interruption
+                        delta_data = 10
+
+                delta_box[n] = {"time": delta_box_source[n]["time"], "data": delta_data}
+
+            self.time_formatted_data[MovieData.DataType.deltaBox] = delta_box
+
         for typ in MovieData.DataType:
-            calc_total_data(typ)
+            if MovieData.DataType.is_raw_data_type(typ):
+                calc_total_data(typ)
+
+        calc_additional_data()
 
     def dumps_all(self):
         return json.dumps({"movieName": self.movieName, "data": self.data_record})
@@ -179,7 +235,4 @@ class MovieData:
         :return: <List>
         """
 
-        output_list = []
-        for data in self.time_formatted_data:
-            output_list.append(data[MovieData.DataType.to_str(data_type)])
-        return output_list
+        return self.time_formatted_data[MovieData.DataType.to_str(data_type)]

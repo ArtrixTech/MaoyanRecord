@@ -12,7 +12,6 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 record_dir = "records/"
 
-
 path = os.listdir(record_dir)
 all_records_loc = []
 for p in path:
@@ -31,7 +30,7 @@ for file_loc in all_records_loc:
 time_max = 0
 time_min = 2000000000
 for movie_name in all_data:
-    movie_data = all_data[movie_name].get_data_list(time)
+    movie_data = all_data[movie_name].get_data_list(MovieData.DataType.boxRate)
     for data in movie_data:
         if data["time"] < time_min:
             time_min = data["time"]
@@ -45,108 +44,84 @@ print(time_max_text)
 print(time_min_text)
 
 
-def reformat(data):
-    return str(data).replace("%", "")
+def draw_graph(data_type, gaussian_kernel_radius=16):
+    assert isinstance(data_type, MovieData.DataType)
+    fig = plt.figure(figsize=(10, 4), dpi=128)
 
+    def reformat(input_list):
 
-fig = plt.figure(figsize=(10, 4), dpi=128)
+        for index in range(len(input_list) - 1):
+            if data_type == MovieData.DataType.sumBoxInfo:
+                if "亿" in str(input_list[index]["data"]):
+                    input_list[index]["data"] = float(input_list[index]["data"].replace("亿", "")) * 10000
+                elif "万" in str(input_list[index]):
+                    input_list[index]["data"] = float(input_list[index]["data"].replace("万", ""))
+            input_list[index]["data"] = float(str(input_list[index]["data"]).replace("%", ""))
 
-for movie_name in all_data:
+        return input_list
 
-    print("Drawing " + movie_name + ".")
+    def extract_time_list(input_list):
+        rt = []
+        for index in range(len(input_list) - 1):
+            rt.append(input_list[index]["time"])
+        return rt
 
-    movie_data = all_data[movie_name]
-    all_day_box_info = []
-    all_sum_box_info = []
-    all_seat_rate = []
-    all_box_rate = []
-    all_show = []
-
-    time_stamps = []
-
-    for data in movie_data:
-
-        time = data["time"]
-        day_box_info = data["dayBoxInfo"]
-        sum_box_info = reformat(data["sumBoxInfo"])
-        seat_rate = reformat(data["seatRate"])
-        box_rate = reformat(data["boxRate"])
-        total_show = data["totalShow"]
-
-        if "亿" in sum_box_info:
-            sum_box_info = float(sum_box_info.replace("亿", "")) * 10000
-        elif "万" in sum_box_info:
-            sum_box_info = float(sum_box_info.replace("万", ""))
-
-        all_day_box_info.append(float(day_box_info))
-        all_sum_box_info.append(float(sum_box_info))
-        all_seat_rate.append(float(seat_rate))
-        all_box_rate.append(float(box_rate))
-        all_show.append(float(total_show))
-
-        time_stamps.append(time)
-
+    def extract_data_list(input_list):
+        rt = []
+        for index in range(len(input_list) - 1):
+            rt.append(input_list[index]["data"])
+        return rt
 
     def gaussian_smooth(input_data, degree=160):
         window = degree * 2 - 1
         weight = np.array([1.0] * window)
         weight_gauss = []
-        for i in range(window):
-            i = i - degree + 1
-            fraction = i / float(window)
+        for index in range(window):
+            index = index - degree + 1
+            fraction = index / float(window)
             gauss = 1 / (np.exp((4 * fraction) ** 2))
             weight_gauss.append(gauss)
         weight = np.array(weight_gauss) * weight
         smoothed = [0.0] * (len(input_data) - window)
-        for i in range(len(smoothed)):
-            smoothed[i] = sum(np.array(input_data[i:i + window]) * weight) / sum(weight)
+        for index in range(len(smoothed)):
+            smoothed[index] = sum(np.array(input_data[index:index + window]) * weight) / sum(weight)
         return smoothed
 
+    # Traversal all movie and draw
+    for now_movie_key in all_data:
+        now_movie = all_data[now_movie_key]
+        assert isinstance(now_movie, MovieData)
 
-    all_delta_box = np.zeros(len(all_day_box_info))
+        # Extract needed data from each movie obj and re-format
+        reformatted = reformat(now_movie.get_data_list(data_type))
+        data_list = extract_data_list(reformatted)
+        time_list = extract_time_list(reformatted)
 
-    for n in range(len(all_day_box_info) - 1):
-        if n == 0:
-            all_delta_box[n] = 0
-        else:
-            all_delta_box[n] = (all_day_box_info[n] - all_day_box_info[n - 1]) / 5
-            if all_delta_box[n] < 0:  # Prevent interference of day-change
-                all_delta_box[n] = 0
-            if all_delta_box[n] > 10:  # Prevent interference of data-interruption
-                all_delta_box[n] = 10
+        # Rear part of data_list will lost due to gaussian convolution operation
+        # data_length_bias is the length of the cut part
+        data_length_bias = gaussian_kernel_radius * 2 - 1
+        x_data = time_list[:len(time_list) - data_length_bias]
+        y_data = gaussian_smooth(data_list, gaussian_kernel_radius)
 
-    gaussian_kernel_radius = 256
-    # gaussian_kernel_radius = 16
-    gaussian_kernel_radius = 1
+        plt.plot(np.array(x_data), np.array(y_data), label=now_movie.movieName, linewidth=1.6)
 
-    data_bias = gaussian_kernel_radius * 2 - 1
-    x = time_stamps[:len(time_stamps) - data_bias]
-    y = gaussian_smooth(all_sum_box_info, gaussian_kernel_radius)
+        bottom = plt.ylim()[0]
+        bottom_vals = np.zeros(len(x_data))
+        for i in range(len(x_data) - 1):  # Temporarily set value to 0.
+            bottom_vals[i] = 0
 
-    plt.plot(np.array(x), np.array(y), label=movie_name, linewidth=1.6)
-    bottom = plt.ylim()[0]
-    bottom_vals = np.zeros(len(x))
-    for i in range(len(x) - 1):  # Temporarily set value to 0.
-        bottom_vals[i] = 0
-    plt.fill_between(np.array(x), bottom_vals, np.array(y), alpha=0.1)
+        plt.fill_between(np.array(x_data), bottom_vals, np.array(y_data), alpha=0.1)
 
-plt.grid(color=(0.8, 0.8, 0.8, 0.8))
-plt.xlim([time_min, time_max])
-plt.ylim(bottom=0)
-plt.legend()
+    plt.grid(color=(0.8, 0.8, 0.8, 0.8))
+    plt.xlim([time_min, time_max])
+    plt.ylim(bottom=0)
+    plt.legend()
 
-plt.xlabel("Unix时间戳")
-plt.ylabel("票房增速 万元/秒")
-plt.title("电影票房增长速度 - " + "[" + time_min_text + "到" + time_max_text + "]")
-
-if False:
     plt.xlabel("Unix时间戳")
-    plt.ylabel("总票房 万元")
-    plt.title("电影总票房 - " + "[" + time_min_text + "到" + time_max_text + "]")
+    plt.ylabel("票房增速 万元/秒")
+    plt.title("电影票房增长速度 - " + "[" + time_min_text + "到" + time_max_text + "]")
 
-elif False:
-    plt.xlabel("Unix时间戳")
-    plt.ylabel("排片量 （场）")
-    plt.title("排片量 - " + "[" + time_min_text + "到" + time_max_text + "]")
+    plt.show()
 
-plt.show()
+
+draw_graph(MovieData.DataType.sumBoxInfo)
