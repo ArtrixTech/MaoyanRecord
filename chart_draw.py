@@ -23,9 +23,13 @@ for file_loc in all_records_loc:
     with open(file_loc, mode="r") as file:
         lines = file.readlines()
         print("Processing file '" + file_loc + "'")
+
         obj = MovieData()
-        obj.loads(lines)
-        all_data[obj.movieName] = obj
+        if obj.movieName in all_data:
+            all_data[obj.movieName].loads(lines)
+        else:
+            obj.loads(lines)
+            all_data[obj.movieName] = obj
 
 time_max = 0
 time_min = 2000000000
@@ -140,5 +144,3 @@ def draw_graph(data_type, gaussian_kernel_radius=16):
 draw_graph(MovieData.DataType.showRate, 16)
 draw_graph(MovieData.DataType.sumBoxInfo, 16)
 draw_graph(MovieData.DataType.deltaBox, 256)
-
-
