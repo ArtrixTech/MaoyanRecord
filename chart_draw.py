@@ -50,25 +50,26 @@ def draw_graph(data_type, gaussian_kernel_radius=16):
 
     def reformat(input_list):
 
-        for index in range(len(input_list) - 1):
+        for index in range(len(input_list)):
             if data_type == MovieData.DataType.sumBoxInfo:
                 if "亿" in str(input_list[index]["data"]):
                     input_list[index]["data"] = float(input_list[index]["data"].replace("亿", "")) * 10000
                 elif "万" in str(input_list[index]):
                     input_list[index]["data"] = float(input_list[index]["data"].replace("万", ""))
+
             input_list[index]["data"] = float(str(input_list[index]["data"]).replace("%", ""))
 
         return input_list
 
     def extract_time_list(input_list):
         rt = []
-        for index in range(len(input_list) - 1):
+        for index in range(len(input_list)):
             rt.append(input_list[index]["time"])
         return rt
 
     def extract_data_list(input_list):
         rt = []
-        for index in range(len(input_list) - 1):
+        for index in range(len(input_list)):
             rt.append(input_list[index]["data"])
         return rt
 
@@ -97,6 +98,9 @@ def draw_graph(data_type, gaussian_kernel_radius=16):
         data_list = extract_data_list(reformatted)
         time_list = extract_time_list(reformatted)
 
+        print(len(reformatted))
+        print(len(data_list))
+
         # Rear part of data_list will lost due to gaussian convolution operation
         # data_length_bias is the length of the cut part
         data_length_bias = gaussian_kernel_radius * 2 - 1
@@ -118,10 +122,23 @@ def draw_graph(data_type, gaussian_kernel_radius=16):
     plt.legend()
 
     plt.xlabel("Unix时间戳")
-    plt.ylabel("票房增速 万元/秒")
-    plt.title("电影票房增长速度 - " + "[" + time_min_text + "到" + time_max_text + "]")
-
+    if data_type == MovieData.DataType.deltaBox:
+        plt.ylabel("票房增速(万元/秒)")
+        plt.title("票房增速 - " + "[" + time_min_text + "到" + time_max_text + "]")
+    if data_type == MovieData.DataType.dayBoxInfo:
+        plt.ylabel("单日票房(万元)")
+        plt.title("单日票房 - " + "[" + time_min_text + "到" + time_max_text + "]")
+    if data_type == MovieData.DataType.sumBoxInfo:
+        plt.ylabel("总票房(万元)")
+        plt.title("总票房 - " + "[" + time_min_text + "到" + time_max_text + "]")
+    if data_type == MovieData.DataType.showRate:
+        plt.ylabel("排片占比 %")
+        plt.title("排片占比 - " + "[" + time_min_text + "到" + time_max_text + "]")
     plt.show()
 
 
-draw_graph(MovieData.DataType.sumBoxInfo)
+draw_graph(MovieData.DataType.showRate, 16)
+draw_graph(MovieData.DataType.sumBoxInfo, 16)
+draw_graph(MovieData.DataType.deltaBox, 256)
+
+

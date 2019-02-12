@@ -27,16 +27,18 @@ class MovieApi:
                 json_raw = self.requests.get(self.request_api, headers=self.headers, timeout=2.5).text
             except:
                 return False
-        data_dict = json.loads(json_raw)
-        self._raw_data = data_dict["data"]["list"]
+        if len(json_raw) > 10:
+            data_dict = json.loads(json_raw)
+            self._raw_data = data_dict["data"]["list"]
 
-        for movie_data in self._raw_data:
-            now_id = movie_data["movieId"]
-            if now_id not in self.movie_ids:
-                self.movie_ids.append(now_id)
-            self._data[now_id] = movie_data
+            for movie_data in self._raw_data:
+                now_id = movie_data["movieId"]
+                if now_id not in self.movie_ids:
+                    self.movie_ids.append(now_id)
+                self._data[now_id] = movie_data
 
-        return True
+            return True
+        return False
 
     def get_data(self, movie_id, attribute_name):
         if movie_id in self.movie_ids:
@@ -196,7 +198,7 @@ class MovieData:
             delta_box_source = self.get_data_list(MovieData.DataType.dayBoxInfo)
             delta_box = list(np.zeros(len(delta_box_source)))
 
-            for n in range(len(delta_box_source) - 1):
+            for n in range(len(delta_box_source)):
                 if n == 0:
                     delta_data = 0
                 else:
@@ -217,7 +219,7 @@ class MovieData:
 
                 delta_box[n] = {"time": delta_box_source[n]["time"], "data": delta_data}
 
-            self.time_formatted_data[MovieData.DataType.deltaBox] = delta_box
+            self.time_formatted_data[MovieData.DataType.to_str(MovieData.DataType.deltaBox)] = delta_box
 
         for typ in MovieData.DataType:
             if MovieData.DataType.is_raw_data_type(typ):
